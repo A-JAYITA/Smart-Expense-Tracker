@@ -19,13 +19,23 @@ app.get('/', (req, res) => {
 const authRoutes = require('./routes/authRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const incomeRoutes = require('./routes/incomeRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
+// Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/income', incomeRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
+// Error middleware imports
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+
+// Mount centralized error handlers
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-});
+});
