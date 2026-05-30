@@ -1,0 +1,11 @@
+{
+  "name": "smart-expense-tracker",
+  "version": "1.0.0",
+  "description": "Smart Expense Tracker Fullstack Application",
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "npx concurrently --kill-others-on-fail \"npm:dev:server\" \"npm:dev:client\"",
+    "start": "npm start --prefix server"
+  }
+}
