@@ -20,12 +20,14 @@ const authRoutes = require('./routes/authRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const incomeRoutes = require('./routes/incomeRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const budgetRoutes = require('./routes/budgetRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/income', incomeRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/budgets', budgetRoutes);
 
 // Error middleware imports
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');

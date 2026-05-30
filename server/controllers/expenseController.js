@@ -33,12 +33,13 @@ const addExpense = async (req, res, next) => {
  * @desc    Get all expenses for the logged-in user with filters
  * @route   GET /api/expenses/all
  * @access  Private
+ * @query   category, startDate, endDate, month, year
  */
 const getExpenses = async (req, res, next) => {
   try {
-    const { category, startDate, endDate } = req.query;
-    
-    // Base query only fetching the logged-in user's data
+    const { category, startDate, endDate, month, year } = req.query;
+
+    // Base query — only the logged-in user's data
     const query = { userId: req.user._id };
 
     // Apply category filter
@@ -46,10 +47,9 @@ const getExpenses = async (req, res, next) => {
       query.category = category;
     }
 
-    // Apply date range filters
+    // Priority: explicit date range > month+year shortcut > year-only
     if (startDate || endDate) {
       query.date = {};
-      
       if (startDate) {
         const start = new Date(startDate);
         if (isNaN(start.getTime())) {
@@ -58,17 +58,30 @@ const getExpenses = async (req, res, next) => {
         }
         query.date.$gte = start;
       }
-      
       if (endDate) {
         const end = new Date(endDate);
         if (isNaN(end.getTime())) {
           res.status(400);
           throw new Error('Invalid end date format (use YYYY-MM-DD)');
         }
-        // Set end time to 23:59:59.999 to cover the complete end day
         end.setHours(23, 59, 59, 999);
         query.date.$lte = end;
       }
+    } else if (month && year) {
+      // Auto-generate boundaries for the entire month
+      const m = parseInt(month);
+      const y = parseInt(year);
+      query.date = {
+        $gte: new Date(y, m - 1, 1),
+        $lte: new Date(y, m, 0, 23, 59, 59, 999)
+      };
+    } else if (year) {
+      // Year-only filter
+      const y = parseInt(year);
+      query.date = {
+        $gte: new Date(y, 0, 1),
+        $lte: new Date(y, 11, 31, 23, 59, 59, 999)
+      };
     }
 
     const expenses = await Expense.find(query).sort({ date: -1 });
@@ -92,7 +105,6 @@ const updateExpense = async (req, res, next) => {
       throw new Error('Expense not found');
     }
 
-    // Check if the expense belongs to the logged-in user
     if (expense.userId.toString() !== req.user._id.toString()) {
       res.status(401);
       throw new Error('Not authorized to update this expense');
@@ -101,7 +113,7 @@ const updateExpense = async (req, res, next) => {
     const updatedExpense = await Expense.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true } // runValidators: true ensures Mongoose schema validation still runs on updates
+      { new: true, runValidators: true }
     );
 
     res.status(200).json(updatedExpense);
@@ -124,7 +136,6 @@ const deleteExpense = async (req, res, next) => {
       throw new Error('Expense not found');
     }
 
-    // Check if the expense belongs to the logged-in user
     if (expense.userId.toString() !== req.user._id.toString()) {
       res.status(401);
       throw new Error('Not authorized to delete this expense');
@@ -148,7 +159,7 @@ const getExpensesByCategory = async (req, res, next) => {
       userId: req.user._id,
       category: req.params.category
     }).sort({ date: -1 });
-    
+
     res.status(200).json(expenses);
   } catch (error) {
     next(error);
@@ -161,4 +172,4 @@ module.exports = {
   updateExpense,
   deleteExpense,
   getExpensesByCategory
-};
+};

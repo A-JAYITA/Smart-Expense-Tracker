@@ -33,12 +33,13 @@ const addIncome = async (req, res, next) => {
  * @desc    Get all income entries for the logged-in user with filters
  * @route   GET /api/income/all
  * @access  Private
+ * @query   source, startDate, endDate, month, year
  */
 const getIncome = async (req, res, next) => {
   try {
-    const { source, startDate, endDate } = req.query;
-    
-    // Base query only fetching the logged-in user's data
+    const { source, startDate, endDate, month, year } = req.query;
+
+    // Base query — only the logged-in user's data
     const query = { userId: req.user._id };
 
     // Apply source filter
@@ -46,10 +47,9 @@ const getIncome = async (req, res, next) => {
       query.source = source;
     }
 
-    // Apply date range filters
+    // Priority: explicit date range > month+year shortcut > year-only
     if (startDate || endDate) {
       query.date = {};
-      
       if (startDate) {
         const start = new Date(startDate);
         if (isNaN(start.getTime())) {
@@ -58,17 +58,30 @@ const getIncome = async (req, res, next) => {
         }
         query.date.$gte = start;
       }
-      
       if (endDate) {
         const end = new Date(endDate);
         if (isNaN(end.getTime())) {
           res.status(400);
           throw new Error('Invalid end date format (use YYYY-MM-DD)');
         }
-        // Set end time to 23:59:59.999 to cover the complete end day
         end.setHours(23, 59, 59, 999);
         query.date.$lte = end;
       }
+    } else if (month && year) {
+      // Auto-generate boundaries for the entire month
+      const m = parseInt(month);
+      const y = parseInt(year);
+      query.date = {
+        $gte: new Date(y, m - 1, 1),
+        $lte: new Date(y, m, 0, 23, 59, 59, 999)
+      };
+    } else if (year) {
+      // Year-only filter
+      const y = parseInt(year);
+      query.date = {
+        $gte: new Date(y, 0, 1),
+        $lte: new Date(y, 11, 31, 23, 59, 59, 999)
+      };
     }
 
     const income = await Income.find(query).sort({ date: -1 });
@@ -92,7 +105,6 @@ const updateIncome = async (req, res, next) => {
       throw new Error('Income entry not found');
     }
 
-    // Check if the income entry belongs to the logged-in user
     if (income.userId.toString() !== req.user._id.toString()) {
       res.status(401);
       throw new Error('Not authorized to update this income entry');
@@ -101,7 +113,7 @@ const updateIncome = async (req, res, next) => {
     const updatedIncome = await Income.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true } // ensures validation checks are run on update
+      { new: true, runValidators: true }
     );
 
     res.status(200).json(updatedIncome);
@@ -124,7 +136,6 @@ const deleteIncome = async (req, res, next) => {
       throw new Error('Income entry not found');
     }
 
-    // Check if the income entry belongs to the logged-in user
     if (income.userId.toString() !== req.user._id.toString()) {
       res.status(401);
       throw new Error('Not authorized to delete this income entry');
@@ -142,4 +153,4 @@ module.exports = {
   getIncome,
   updateIncome,
   deleteIncome
-};
+};
